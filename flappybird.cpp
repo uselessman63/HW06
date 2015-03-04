@@ -33,7 +33,7 @@ static uint32_t PlayerBlinkTime;
 #define BLINK_TIME     200
 #define SPEED_BOOST -90.0f
 #define GRAVITY 5.0f
-
+SDL_Surface* gScreenSurface = NULL;
 
 
 
@@ -78,10 +78,10 @@ void generateUpperPipe()
 			upper[i].vx = upper[i].x + player_width/2;	
 			
 			//upper[i].speeds = rand()%speedster;
-			upper[i].height = 40 + randomizer()* (window_height - player_height*4);
+			upper[i].height = randomizer()* (window_height - player_height*4);
 			upper[i].vy = upper[i].y + (upper[i].height/2);
-			distance+= window_width/3;
-		
+			distance+= window_width/3.5;
+			upper[i].passed = false;
 	}
 }
 void generateLowerPipe()
@@ -98,8 +98,8 @@ void generateLowerPipe()
 			//lower[i].speeds = rand()%speed+0.1;
 			lower[i].height = window_height - lower[i].y;
 			lower[i].vy = lower[i].y + lower[i].height/2;
-			distance+= window_width/3;
-		
+			distance+= window_width/3.5;
+			lower[i].passed = false;
 	}
 }
 
@@ -108,10 +108,10 @@ void drawUpper(SDL_Renderer *ren, SDL_Texture *tex)
 {
 	for (int i = 0; i < maxEnemies; i++)
 	{
-		
-		SDL_Rect bulletSpace = {upper[i].x, 0, player_width, upper[i].height }; //positioning of thingy
-		SDL_RenderCopy(ren, tex, NULL, &bulletSpace); //texturization of thingy
-		//SDL_FillRect(surf, &bulletSpace, 0x00FF00);
+		//SDL_Point center = {upper[i].vx, upper[i].vy};
+		SDL_Rect upperPipes = {upper[i].x, upper[i].y, player_width, upper[i].height }; //positioning of thingy
+		SDL_RenderCopy(ren, tex, NULL, &upperPipes); //texturization of thingy
+		//SDL_RenderCopyEx(ren, tex, NULL, &upperPipes, 1, &center, SDL_FLIP_NONE);
 		
 	}
 	
@@ -121,8 +121,8 @@ void drawLower(SDL_Renderer *ren, SDL_Texture *tex)
 	for (int i = 0; i < maxEnemies; i++)
 	{
 
-		SDL_Rect bulletSpace = {lower[i].x, lower[i].y, player_width, lower[i].height }; //positioning of thingy
-		SDL_RenderCopy(ren, tex, NULL, &bulletSpace); //texturization of thingy
+		SDL_Rect lowerPipes = {lower[i].x, lower[i].y, player_width, lower[i].height }; //positioning of thingy
+		SDL_RenderCopy(ren, tex, NULL, &lowerPipes); //texturization of thingy
 		//SDL_FillRect(surf, &bulletSpace,0x00FF00);
 	}
 	
@@ -146,7 +146,7 @@ void action()
 {
 	player.starty -= 12;
 }
-void advanceBullets(int playerposx, int playerposy, int t)
+void advancePipes(int playerposx, int playerposy, int t)
 {
 	 
 	for (int i = 0; i < maxEnemies; i++)
@@ -350,8 +350,56 @@ bool CollisionCheck()
 		}*/
 	}
 }
+SDL_Surface* loadSurface( std::string path )
+{
+    //The final optimized image
+    SDL_Surface* optimizedSurface = NULL;
 
+    //Load image at specified path
+    SDL_Surface* loadedSurface = IMG_Load( path.c_str() );
+    if( loadedSurface == NULL )
+    {
+        printf( "Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError() );
+    }
+    else
+    {
+        //Convert surface to screen format
+        optimizedSurface = SDL_ConvertSurface( loadedSurface, gScreenSurface->format, NULL );
+        if( optimizedSurface == NULL )
+        {
+            printf( "Unable to optimize image %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
+        }
 
+        //Get rid of old loaded surface
+        SDL_FreeSurface( loadedSurface );
+    }
+
+    return optimizedSurface;
+}
+SDL_Texture *loadTexture(SDL_Renderer *ren,string path)
+{
+	SDL_Texture *newTexture = NULL;
+
+	SDL_Surface *loadedSurface = IMG_Load( path.c_str() );
+    if( loadedSurface == NULL )
+    {
+        printf( "Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError() );
+    }
+    else
+    {
+        //Create texture from surface pixels
+        newTexture = SDL_CreateTextureFromSurface(ren, loadedSurface );
+        if( newTexture == NULL )
+        {
+            printf( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
+        }
+
+        //Get rid of old loaded surface
+        SDL_FreeSurface( loadedSurface );
+    }
+
+	return newTexture;
+}
 //http://wiki.libsdl.org/APIByCategory
 
 int main(int argc, char* argv[]) {
@@ -377,13 +425,18 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 	
-	SDL_Surface *flapper = SDL_LoadBMP("raiden.bmp");
-	SDL_Texture *flappertex = SDL_CreateTextureFromSurface(ren, flapper);
-	SDL_FreeSurface(flapper);
+	//SDL_Surface *flapper = loadTexture("Flappy_Bird_sprite.png");
+	SDL_Texture *flappertex = loadTexture(ren ,"Flappy_Bird_Sprite.png");
+	//SDL_FreeSurface(flapper);
 
-	SDL_Surface *pipeman = SDL_LoadBMP("raiden.bmp");
-	SDL_Texture *pipemantex = SDL_CreateTextureFromSurface(ren, pipeman);
-	SDL_FreeSurface(pipeman);
+	//SDL_Surface *pipeman = IMG_Load("upperPipe.png");
+	SDL_Texture *pipemantex = loadTexture(ren, "pipe.png");
+	//SDL_FreeSurface(pipeman);
+
+	//SDL_Surface *pipeman2 = IMG_Load("lowerPipe.png");
+	//SDL_Texture *pipemantex2 = loadTexture(ren, "pipe.png");
+	//SDL_FreeSurface(pipeman2);
+	
 	
 	generateHero();
 	generateUpperPipe();
@@ -404,10 +457,7 @@ int main(int argc, char* argv[]) {
 
 		int frameTimeStart = SDL_GetTicks();
 		
-		if (flapper == NULL)
-		{
-			return 1;
-		}
+		
 		
 		int frame_time_start = SDL_GetTicks();
 		
@@ -416,7 +466,6 @@ int main(int argc, char* argv[]) {
 		SDL_KeyboardEvent key;
 		const auto start = SDL_GetTicks();
 		SDL_GetMouseState(&mx, &my);
-		
 		
 		
 		SDL_SetRenderDrawColor(ren,0,0,0,0);
@@ -437,6 +486,17 @@ int main(int argc, char* argv[]) {
 					
 					
 					
+				}
+				else if (ev.key.keysym.sym == SDLK_r)
+				{
+					generateHero();
+					generateUpperPipe();
+					generateLowerPipe();
+					alive == true;
+					speed = 0;
+					speed += GRAVITY;
+					count = 0;
+					cout << "Score: " << count << '\n';
 				}
 				else if (ev.key.keysym.sym == SDLK_ESCAPE)
 				{
@@ -463,13 +523,14 @@ int main(int argc, char* argv[]) {
 					
 					speed+= GRAVITY;
 					moveHero(speed/10);
+					drawPlayer(ren, flappertex, speed);
 
 				}
 
 				else
 				{
 					speed += GRAVITY;
-					advanceBullets(mx,my, pipeSpeed);
+					advancePipes(mx,my, pipeSpeed);
 					moveHero(speed/10);
 					drawPlayer(ren, flappertex, speed/10);
 				
@@ -508,7 +569,7 @@ int main(int argc, char* argv[]) {
 		//SDL_Delay(2000);
 	}
 	     
-	SDL_DestroyTexture(pipemantex);
+//	SDL_DestroyTexture(pipemantex);
 	SDL_DestroyRenderer(ren);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
